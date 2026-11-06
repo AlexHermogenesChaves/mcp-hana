@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hana-diag-mcp"
+version = "0.1.0"
+description = "Conector MCP somente leitura para diagnóstico em bases SAP HANA / SAP B1"
+requires-python = ">=3.10"
+dependencies = ["mcp>=2,<3", "pyodbc>=5"]
+
+[project.scripts]
+hana-diag-mcp = "hana_diag_mcp.server:main"
+hana-diag-config = "hana_diag_mcp.configurar:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
