@@ -1,0 +1,25 @@
+{
+  "name": "hana-diag-mcp",
+  "version": "0.2.0",
+  "description": "Conector MCP para executar SELECTs nas bases SAP B1 dos clientes (SAP HANA e SQL Server) sem acessar o ambiente do cliente — somente leitura",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "hana-diag-mcp": "src/server.js",
+    "hana-diag-config": "src/configurar.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "config": "node src/configurar.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@sap/hana-client": "^2.30.27",
+    "mssql": "^12.7.14",
+    "zod": "^4.6.7"
+  }
+}

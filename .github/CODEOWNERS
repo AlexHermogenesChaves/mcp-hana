@@ -1,0 +1,8 @@
+# Mudanças na proteção de somente leitura exigem aprovação do dono do repositório.
+# (Vale quando a proteção da branch main exige "Review from Code Owners".)
+/src/guarda.js           @AlexHermogenesChaves
+/test/guarda.test.js     @AlexHermogenesChaves
+/src/bancos/             @AlexHermogenesChaves
+/src/banco.js            @AlexHermogenesChaves
+/instalar.ps1            @AlexHermogenesChaves
+/.github/CODEOWNERS      @AlexHermogenesChaves
