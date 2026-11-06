@@ -1,4 +1,4 @@
-# hana-diag — SELECTs nas bases SAP B1 dos clientes, sem acessar o ambiente do cliente
+# hana-diag — SELECTs nas bases SAP B1 dos clientes, sem acessar o ambiente local
 
 Conector MCP para o Claude executar **consultas SELECT** nas bases SAP Business One dos
 clientes — **SAP HANA** ou **SQL Server** — direto da sua máquina, sem abrir área de
