@@ -11,26 +11,98 @@ transação chega ao banco.
 > Ainda é preciso alcançar o servidor de banco pela rede (normalmente pela VPN do
 > cliente). O que deixa de ser necessário é entrar no ambiente dele.
 
-## Instalação (cada pessoa, no próprio PC)
+## Pré-requisitos
 
-Pré-requisitos: Windows, **Node.js 20+** (`winget install OpenJS.NodeJS.LTS`), Claude
-Code e `git`. Não é preciso instalar SAP HANA Client nem driver de SQL Server: os drivers
-vêm pelo npm.
+| Ferramenta | Para quê | Versão |
+|---|---|---|
+| Windows 10/11 | o cadastro é cifrado com o DPAPI do Windows | — |
+| **Git** | baixar e atualizar o conector | qualquer recente |
+| **Node.js** | roda o conector e os drivers de banco | **20 ou superior** (LTS) |
+| **Claude Code** | o cliente que usa o MCP | atual |
+| VPN / acesso de rede ao servidor do cliente | alcançar o banco | — |
+
+**Não** é preciso instalar SAP HANA Client, HANA Studio, ODBC nem driver de SQL Server:
+os drivers vêm pelo npm junto com o conector. Também não é preciso conta no GitHub — o
+repositório é público.
+
+### 1. Instalar Git, Node.js e Claude Code
+
+Abra o **PowerShell** (não precisa ser administrador) e rode:
+
+```powershell
+winget install --id Git.Git -e
+winget install --id OpenJS.NodeJS.LTS -e
+irm https://claude.ai/install.ps1 | iex
+```
+
+Sem `winget` (Windows antigo ou bloqueado pela TI), baixe e instale manualmente, aceitando
+as opções padrão:
+
+- Git: <https://git-scm.com/download/win>
+- Node.js LTS: <https://nodejs.org/> (botão "LTS")
+- Claude Code: <https://docs.claude.com/en/docs/claude-code/setup>
+
+**Feche e abra o PowerShell de novo** (para o `PATH` novo valer) e confira:
+
+```powershell
+git --version
+node -v        # precisa mostrar v20 ou maior
+npm -v
+claude --version
+```
+
+Na primeira vez, rode `claude` e faça login com a sua conta.
+
+### 2. Baixar o conector e instalar
 
 ```powershell
 git clone https://github.com/AlexHermogenesChaves/mcp-hana.git C:\Projetos_SPS\hana-diag-mcp
 cd C:\Projetos_SPS\hana-diag-mcp
-.\instalar.ps1 -RegistrarClaude
+powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -RegistrarClaude
 ```
+
+(O `-ExecutionPolicy Bypass` vale só para essa execução; evita o erro "a execução de
+scripts foi desabilitada neste sistema" sem mudar a configuração do Windows.)
 
 O instalador confere o Node, roda `npm ci`, roda os testes (inclusive a conferência da
 lista de palavras proibidas — se ela foi alterada, **a instalação é recusada**) e, com
 `-RegistrarClaude`, registra o servidor `hana-diag` no Claude Code.
 
-**Atualizar:** `git pull` e `.\instalar.ps1 -RegistrarClaude` de novo. O seu cadastro não
-é afetado.
+Confira o registro (deve aparecer `Connected`):
+
+```powershell
+claude mcp get hana-diag
+```
+
+Se o instalador avisar que a CLI `claude` não foi encontrada, registre manualmente:
+
+```powershell
+claude mcp add hana-diag --scope user -- node C:\Projetos_SPS\hana-diag-mcp\src\server.js
+```
 
 Outro cliente MCP: comando `node`, argumento `<pasta do clone>\src\server.js` (stdio).
+
+### Atualizar
+
+```powershell
+cd C:\Projetos_SPS\hana-diag-mcp
+git pull
+powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -RegistrarClaude
+```
+
+O seu cadastro (`config\`) não é afetado. Depois de atualizar, abra uma sessão nova do
+Claude Code.
+
+### Problemas comuns na instalação
+
+| Sintoma | O que fazer |
+|---|---|
+| `git`, `node` ou `claude` "não é reconhecido" | feche e abra o PowerShell; se persistir, reinstale marcando "Add to PATH" |
+| `node -v` mostra v18 ou menor | `winget upgrade --id OpenJS.NodeJS.LTS -e` |
+| "execução de scripts foi desabilitada" | rode com `powershell -ExecutionPolicy Bypass -File .\instalar.ps1 ...` |
+| `npm ci` falha com erro de rede/certificado | proxy da empresa: `npm config set proxy http://proxy:porta` (e `https-proxy`), ou rode fora da VPN só a instalação |
+| `npm ci` falha ao carregar `@sap/hana-client` | instale o Microsoft Visual C++ Redistributable x64: `winget install --id Microsoft.VCRedist.2015+.x64 -e` |
+| testes reprovados / instalação recusada | o código local foi alterado; descarte com `git checkout -- .` e `git pull` |
 
 ## Cadastrar empresas
 
