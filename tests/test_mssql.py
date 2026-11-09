@@ -126,6 +126,26 @@ class ConfiguradorSqlServer(unittest.TestCase):
             self.assertEqual((c.tipo, c.banco, c.senha, c.userkey), ("mssql", "SBO_CLI_PRD", "s3nha!", ""))
             self.assertNotIn(b"s3nha!", arq.read_bytes())
 
+    def test_instancia_com_porta_vai_direto_pela_porta(self):
+        with tempfile.TemporaryDirectory() as d:
+            arq = self._arquivo(d)
+            respostas = iter(["mssql", "cli-qa", "", "sql01", "QA", "50123", "SBO_CLI", "LEITOR", "n", "n"])
+            with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
+                 mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
+                 mock.patch.object(configurar, "_pedir_senha", return_value="x"), \
+                 mock.patch("builtins.input", lambda *_: next(respostas)), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                configurar.adicionar()
+            c = config.carregar(arq).obter("cli-qa")
+            self.assertEqual((c.instancia, c.porta), ("", 50123))
+
+    def test_dica_quando_o_sql_browser_nao_responde(self):
+        erro = "[08001] Erro ao Localizar Servidor/Instância Especificado [xFFFFFFFF]"
+        dica = configurar._dica_de_erro(_sql(instancia="SERVIDOR01"), erro)
+        self.assertIn("SQL Browser", dica)
+        self.assertIn("porta 1433", dica)
+        self.assertIn("senha cli-prd", configurar._dica_de_erro(_sql(), "Login failed for user"))
+
     def test_trocar_senha_oferece_o_mesmo_servidor(self):
         with tempfile.TemporaryDirectory() as d:
             arq = self._arquivo(d, [_sql(), _sql(nome="cli-tst", banco="SBO_CLI_TST"), _sql(nome="outro", host="sql02")])

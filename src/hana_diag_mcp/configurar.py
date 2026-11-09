@@ -167,8 +167,19 @@ def adicionar() -> None:
         print()
         _gravar_no_hdbuserstore(cfg.hdbclient, c)
     else:
-        instancia = _perguntar("Instância nomeada (vazio se padrão; ex.: SQLEXPRESS)")
-        porta = TIPOS[tipo]["porta"] if instancia else int(_perguntar("Porta", str(TIPOS[tipo]["porta"])))
+        print("  Instância nomeada é a parte depois da barra em SERVIDOR\\INSTANCIA (ex.: SQLEXPRESS).")
+        print("  NÃO é o nome do servidor. Na dúvida, deixe vazio (instância padrão, porta 1433).")
+        instancia = _perguntar("Instância nomeada (vazio = padrão)")
+        if instancia:
+            # Com a porta, a conexão vai direto e dispensa o SQL Browser (UDP 1434), que
+            # costuma estar parado ou bloqueado na VPN.
+            porta_texto = _perguntar("Porta TCP da instância (vazio = descobrir pelo SQL Browser)")
+            if porta_texto:
+                instancia, porta = "", int(porta_texto)
+            else:
+                porta = TIPOS[tipo]["porta"]
+        else:
+            porta = int(_perguntar("Porta", str(TIPOS[tipo]["porta"])))
         banco = _perguntar("Banco da empresa B1 (ex.: SBO_CLIENTE_PRD)", obrigatorio=True)
         usuario = _perguntar("Usuário do banco (de preferência um usuário só com SELECT)", obrigatorio=True)
         _avisar_se_administrativo(usuario)
@@ -236,6 +247,24 @@ def remover(nome: str) -> None:
     print("Removida.")
 
 
+def _dica_de_erro(c: Conexao, erro: str) -> str:
+    """Traduz os erros de conexão mais comuns em o que fazer."""
+    texto = erro.lower()
+    if c.tipo == "mssql" and c.instancia and (
+        "xffffffff" in texto or "localizar servidor/inst" in texto or "locating server/instance" in texto
+    ):
+        return (
+            f"o SQL Browser (UDP 1434) não respondeu para achar a instância '{c.instancia}'. Se ela é a "
+            "instância padrão (o nome é do servidor, não da instância), recadastre com 'Instância' vazia e "
+            "porta 1433; se é mesmo nomeada, informe a porta TCP dela no cadastro."
+        )
+    if "login failed" in texto or "falha de logon" in texto or "authentication failed" in texto:
+        return "rede e porta estão certas; usuário ou senha não. Troque com: hana-diag-config senha " + c.nome
+    if "tempo limite" in texto or "timeout" in texto or "10060" in texto:
+        return "o servidor não respondeu: confira a VPN, o host e a porta."
+    return ""
+
+
 def testar(nome: str) -> bool:
     from . import banco
 
@@ -244,6 +273,9 @@ def testar(nome: str) -> bool:
         r = banco.executar(c, banco.SQL_TESTE[c.tipo])
     except Exception as e:  # noqa: BLE001 - mostrar ao usuário qualquer falha de conexão
         print(f"FALHOU: {e}")
+        dica = _dica_de_erro(c, str(e))
+        if dica:
+            print(f"  DICA: {dica}")
         return False
     usuario, empresa, versao = r["linhas"][0][:3]
     print(f"OK em {r['tempo_ms']} ms — usuário {usuario}, empresa {empresa}, {TIPOS[c.tipo]['rotulo']} {versao}")
