@@ -97,11 +97,14 @@ def sugerir_nome(empresa: str, existentes: set[str]) -> str:
 
 
 def nova_conexao(base: Conexao, nome: str, empresa: str, descricao: str) -> Conexao:
-    """Mesma credencial e servidor da conexão base, apontando para outra empresa."""
+    """Mesma credencial e servidor da conexão base, apontando para outra empresa.
+
+    O portal não é herdado: outra empresa costuma ter outro portal (HMG × PRD).
+    """
     if base.tipo == "mssql":
-        c = replace(base, nome=nome, banco=empresa, descricao=descricao)
+        c = replace(base, nome=nome, banco=empresa, descricao=descricao, portal="")
     else:
-        c = replace(base, nome=nome, schema=empresa, descricao=descricao)
+        c = replace(base, nome=nome, schema=empresa, descricao=descricao, portal="")
     c.validar()
     return c
 

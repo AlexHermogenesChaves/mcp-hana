@@ -113,7 +113,7 @@ class ConfiguradorSqlServer(unittest.TestCase):
     def test_adicionar_guarda_senha_cifrada_sem_hdbuserstore(self):
         with tempfile.TemporaryDirectory() as d:
             arq = self._arquivo(d)
-            respostas = iter(["mssql", "cli-prd", "Cliente PRD", "sql01", "", "1433", "SBO_CLI_PRD", "LEITOR", "n", "n"])
+            respostas = iter(["mssql", "cli-prd", "Cliente PRD", "", "sql01", "", "1433", "SBO_CLI_PRD", "LEITOR", "n", "n"])
             with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
                  mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
                  mock.patch.object(configurar, "_pedir_senha", return_value="s3nha!"), \
@@ -129,7 +129,7 @@ class ConfiguradorSqlServer(unittest.TestCase):
     def test_instancia_com_porta_vai_direto_pela_porta(self):
         with tempfile.TemporaryDirectory() as d:
             arq = self._arquivo(d)
-            respostas = iter(["mssql", "cli-qa", "", "sql01", "QA", "50123", "SBO_CLI", "LEITOR", "n", "n"])
+            respostas = iter(["mssql", "cli-qa", "", "", "sql01", "QA", "50123", "SBO_CLI", "LEITOR", "n", "n"])
             with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
                  mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
                  mock.patch.object(configurar, "_pedir_senha", return_value="x"), \
@@ -138,6 +138,51 @@ class ConfiguradorSqlServer(unittest.TestCase):
                 configurar.adicionar()
             c = config.carregar(arq).obter("cli-qa")
             self.assertEqual((c.instancia, c.porta), ("", 50123))
+
+    def test_portal_e_opcional_e_sem_portal_fica_vazio(self):
+        with tempfile.TemporaryDirectory() as d:
+            arq = self._arquivo(d)
+            respostas = iter(["mssql", "cli-prd", "", "", "sql01", "", "1433", "SBO_CLI_PRD", "LEITOR", "n", "n"])
+            with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
+                 mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
+                 mock.patch.object(configurar, "_pedir_senha", return_value="x"), \
+                 mock.patch("builtins.input", lambda *_: next(respostas)), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                configurar.adicionar()
+            c = config.carregar(arq).obter("cli-prd")
+            self.assertEqual(c.portal, "")
+            self.assertEqual(c.resumo()["portal"], "")
+
+    def test_portal_informado_no_cadastro_e_normalizado(self):
+        with tempfile.TemporaryDirectory() as d:
+            arq = self._arquivo(d)
+            # 1º portal inválido (com usuário embutido) é recusado; o 2º, só o host, ganha https://
+            respostas = iter([
+                "mssql", "cli-prd", "", "https://alex:senha@portal.cli.com", "portal.cli.com/aster/",
+                "sql01", "", "1433", "SBO_CLI_PRD", "LEITOR", "n", "n",
+            ])
+            with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
+                 mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
+                 mock.patch.object(configurar, "_pedir_senha", return_value="x"), \
+                 mock.patch("builtins.input", lambda *_: next(respostas)), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                configurar.adicionar()
+            self.assertEqual(config.carregar(arq).obter("cli-prd").portal, "https://portal.cli.com/aster")
+
+    def test_definir_portal_inclui_e_tira(self):
+        with tempfile.TemporaryDirectory() as d:
+            arq = self._arquivo(d, [_sql()])
+            for resposta, esperado in (("https://aster.cli.com", "https://aster.cli.com"), ("-", "")):
+                with mock.patch.object(configurar, "carregar", lambda: config.carregar(arq)), \
+                     mock.patch.object(configurar, "salvar", lambda cfg: config.salvar(cfg, arq)), \
+                     mock.patch("builtins.input", lambda *_, r=resposta: r), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    configurar.definir_portal("cli-prd")
+                self.assertEqual(config.carregar(arq).obter("cli-prd").portal, esperado)
+
+    def test_outra_empresa_do_servidor_nao_herda_o_portal(self):
+        base = _sql(portal="https://aster.cli.com")
+        self.assertEqual(empresas.nova_conexao(base, "cli-tst", "SBO_CLI_TST", "Teste").portal, "")
 
     def test_dica_quando_o_sql_browser_nao_responde(self):
         erro = "[08001] Erro ao Localizar Servidor/Instância Especificado [xFFFFFFFF]"

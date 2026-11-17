@@ -128,7 +128,8 @@ Cada **empresa do B1** é uma conexão: no HANA, um schema; no SQL Server, um ba
 ```
 
 1. Escolha o tipo (`hana` ou `mssql`) e informe host, porta (ou instância nomeada, no
-   SQL Server), tenant (HANA), empresa e usuário.
+   SQL Server), tenant (HANA), empresa e usuário. A **URL do portal Aster** da empresa é
+   **opcional** (Enter pula): com ela o Claude sabe qual portal abrir no navegador.
 2. Digite a senha **do banco** (aparece `*` a cada tecla) e confirme. O configurador
    mostra "senha recebida (N caracteres)". No HANA ela vai para o `hdbuserstore` do HANA
    client; no SQL Server, para o cadastro cifrado.
@@ -143,9 +144,15 @@ Depois, a qualquer momento:
 .\hana-diag-config.cmd empresas cliente-prd   # empresas do servidor dessa base
 .\hana-diag-config.cmd testar cliente-prd
 .\hana-diag-config.cmd senha cliente-prd      # troca a senha (oferece aplicar às empresas do mesmo servidor)
+.\hana-diag-config.cmd portal cliente-prd     # inclui/troca a URL do portal Aster ('-' tira)
 .\hana-diag-config.cmd remover cliente-tst
 .\hana-diag-config.cmd                        # menu
 ```
+
+O portal fica no cadastro cifrado junto com a base, mas **não é segredo**: é o endereço que
+se digita no navegador e aparece em `listar_conexoes`. Só o endereço — sem usuário e senha
+embutidos (o configurador recusa). Empresas cadastradas pelo `empresas` não herdam o
+portal da base (HMG e PRD costumam ter portais diferentes).
 
 Sugestão de nome: `cliente-ambiente` (`cliente-prd`, `cliente-tst`). O usuário do banco
 precisa de `SELECT` em **cada** empresa cadastrada.
@@ -165,7 +172,7 @@ Numa sessão nova do Claude Code, peça citando a empresa:
 
 | Ferramenta | Para quê |
 |---|---|
-| `listar_conexoes` | empresas cadastradas (nome, descrição, tipo de banco, empresa) |
+| `listar_conexoes` | empresas cadastradas (nome, descrição, tipo de banco, empresa, portal Aster se houver) |
 | `listar_empresas` | empresas B1 do mesmo servidor e quais já estão cadastradas |
 | `testar_conexao` | usuário, empresa, versão do banco |
 | `listar_schemas` / `listar_tabelas` / `descrever_tabela` | conferir nomes antes de montar a SQL |

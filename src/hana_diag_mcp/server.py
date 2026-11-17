@@ -27,6 +27,8 @@ sem precisar acessar o ambiente do cliente. SOMENTE LEITURA.
   é recusado antes de chegar ao banco. Não tente contornar: peça ao usuário para executar.
 - Comece por listar_conexoes: cada conexão é uma empresa B1 e informa o tipo de banco.
   listar_empresas mostra as demais empresas do mesmo servidor.
+- `portal` (opcional, pode vir vazio) é a URL do portal Aster da empresa: use para abrir a tela no
+  navegador. Vazio = não cadastrado; peça a URL ao usuário (`hana-diag-config portal <conexao>`).
 - Não há consultas prontas: monte o SELECT para a pergunta do usuário e execute com `consultar`.
   Antes, confira nomes com listar_tabelas / descrever_tabela em vez de supor colunas.
 - SEMPRE mostre ao usuário a SQL executada (bloco ```sql, campo `sql` do resultado) junto com o
@@ -87,7 +89,7 @@ def _executar(c: Conexao, sql: str, parametros: list[Any] | None = None, max_lin
 
 @ferramenta()
 def listar_conexoes() -> list[dict[str, Any]]:
-    """Lista as bases (empresas) cadastradas: nome, descrição, tipo de banco e empresa. Host, usuário e senha nunca são expostos."""
+    """Lista as bases (empresas) cadastradas: nome, descrição, tipo de banco, empresa e portal Aster (opcional). Host, usuário e senha do banco nunca são expostos."""
     return [c.resumo() for c in carregar().conexoes]
 
 

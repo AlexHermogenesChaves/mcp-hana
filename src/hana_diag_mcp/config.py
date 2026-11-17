@@ -35,6 +35,16 @@ _USERKEY_VALIDA = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 # Schema, banco e instância entram no texto da SQL ou da connection string: aspas,
 # colchetes e ';' ficam proibidos.
 _IDENTIFICADOR_VALIDO = re.compile(r"^[^\"'\[\]\x00;]{1,127}$")
+# Portal Aster da empresa: só o endereço (http/https), sem espaço e sem usuário/senha embutidos.
+_PORTAL_VALIDO = re.compile(r"^https?://[^\s@/]+(/\S*)?$", re.IGNORECASE)
+
+
+def normalizar_portal(url: str) -> str:
+    """Tira espaços e a barra final; acrescenta https:// quando vier só o host."""
+    url = url.strip().rstrip("/")
+    if url and "://" not in url:
+        url = "https://" + url
+    return url
 
 # Chaves gravadas pela versão Node (camelCase) -> nomes daqui.
 _SINONIMOS = {"validarCertificado": "validar_certificado", "timeoutMs": "timeout_ms"}
@@ -56,6 +66,7 @@ class Conexao:
     encrypt: bool = False
     validar_certificado: bool = False
     timeout_ms: int = 60000
+    portal: str = ""  # opcional: URL do portal Aster dessa empresa (para abrir no navegador)
 
     @property
     def empresa(self) -> str:
@@ -72,6 +83,8 @@ class Conexao:
         for rotulo, valor in (("Schema", self.schema), ("Banco", self.banco), ("Instância", self.instancia)):
             if valor and not _IDENTIFICADOR_VALIDO.match(valor):
                 raise ValueError(f"{rotulo} inválido (não pode conter aspas, colchetes nem ';').")
+        if self.portal and not _PORTAL_VALIDO.match(self.portal):
+            raise ValueError("Portal inválido: informe o endereço http(s)://..., sem espaço e sem usuário/senha.")
         if self.tipo == "hana":
             if self.userkey:
                 if not _USERKEY_VALIDA.match(self.userkey):
@@ -83,12 +96,16 @@ class Conexao:
                 raise ValueError("Conexão SQL Server precisa de host, usuário e banco.")
 
     def resumo(self) -> dict:
-        """O que pode ser mostrado ao modelo: nunca host, usuário ou senha."""
+        """O que pode ser mostrado ao modelo: nunca host, usuário ou senha do banco.
+
+        O portal é o endereço web da empresa (o mesmo que se digita no navegador), não credencial.
+        """
         return {
             "nome": self.nome,
             "descricao": self.descricao,
             "tipo": TIPOS[self.tipo]["rotulo"],
             "empresa": self.empresa,
+            "portal": self.portal,
         }
 
 

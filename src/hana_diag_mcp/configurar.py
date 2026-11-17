@@ -6,6 +6,7 @@
     hana-diag-config testar <nome>
     hana-diag-config empresas <nome> lista as empresas B1 do servidor e cadastra as escolhidas
     hana-diag-config senha <nome>    troca a senha da base (sem recadastrar)
+    hana-diag-config portal <nome>   inclui/troca/tira a URL do portal Aster da base (opcional)
     hana-diag-config remover <nome>
 
 Nada fica exposto em disco:
@@ -25,7 +26,7 @@ import sys
 from pathlib import Path
 
 from . import empresas
-from .config import ARQUIVO_CONEXOES, TIPOS, Conexao, carregar, mesmo_servidor, salvar
+from .config import ARQUIVO_CONEXOES, TIPOS, Conexao, carregar, mesmo_servidor, normalizar_portal, salvar
 
 USUARIOS_ADMINISTRATIVOS = frozenset({"B1ADMIN", "SYSTEM", "SAPHANADB", "SBOCOMMON", "SA"})
 
@@ -120,14 +121,41 @@ def _situacao_senha(c: Conexao) -> str:
     return "hdbuserstore" if c.userkey else "FALTA"
 
 
+def _perguntar_portal(atual: str = "") -> str:
+    """URL do portal Aster da empresa — opcional: Enter pula (ou mantém a atual)."""
+    while True:
+        valor = normalizar_portal(_perguntar("URL do portal Aster (opcional, Enter pula)", atual))
+        try:
+            Conexao(nome="x", userkey="X", portal=valor).validar()
+        except ValueError as e:
+            print(f"  {e}")
+            continue
+        return valor
+
+
 def listar() -> None:
     cfg = carregar()
     if not cfg.conexoes:
         print("Nenhuma base cadastrada. Use: hana-diag-config adicionar")
         return
-    print(f"{'NOME':<20} {'BANCO':<11} {'EMPRESA':<30} {'SENHA':<13} DESCRIÇÃO")
+    print(f"{'NOME':<20} {'BANCO':<11} {'EMPRESA':<30} {'SENHA':<13} {'DESCRIÇÃO':<30} PORTAL")
     for c in cfg.conexoes:
-        print(f"{c.nome:<20} {TIPOS[c.tipo]['rotulo']:<11} {c.empresa:<30} {_situacao_senha(c):<13} {c.descricao}")
+        print(
+            f"{c.nome:<20} {TIPOS[c.tipo]['rotulo']:<11} {c.empresa:<30} {_situacao_senha(c):<13} "
+            f"{c.descricao:<30} {c.portal or '-'}"
+        )
+
+
+def definir_portal(nome: str) -> None:
+    """Inclui, troca ou tira (digitando '-') a URL do portal Aster de uma base já cadastrada."""
+    cfg = carregar()
+    c = cfg.obter(nome)
+    print(f"Portal de '{c.nome}' ({c.empresa}). Enter mantém, '-' tira.")
+    valor = _perguntar("URL do portal Aster", c.portal)
+    c.portal = "" if valor.strip() == "-" else normalizar_portal(valor)
+    c.validar()
+    salvar(cfg)
+    print(f"  portal de '{c.nome}': {c.portal or '(sem portal)'}")
 
 
 def _avisar_se_administrativo(usuario: str) -> None:
@@ -150,6 +178,7 @@ def adicionar() -> None:
             return
         cfg.conexoes = [c for c in cfg.conexoes if c.nome.lower() != nome.lower()]
     descricao = _perguntar("Descrição (cliente / ambiente)")
+    portal = _perguntar_portal()
     host = _perguntar(f"Host do {TIPOS[tipo]['rotulo']}", obrigatorio=True)
 
     if tipo == "hana":
@@ -161,7 +190,7 @@ def adicionar() -> None:
         encrypt = _sim("Conexão com TLS (encrypt)?", False)
         c = Conexao(
             nome=nome, descricao=descricao, tipo=tipo, host=host, porta=porta, banco=banco, usuario=usuario,
-            schema=schema, encrypt=encrypt, userkey="DIAG_" + nome.upper().replace("-", "_"),
+            schema=schema, encrypt=encrypt, userkey="DIAG_" + nome.upper().replace("-", "_"), portal=portal,
         )
         c.validar()
         print()
@@ -186,7 +215,7 @@ def adicionar() -> None:
         encrypt = _sim("Conexão com TLS (encrypt)?", False)
         c = Conexao(
             nome=nome, descricao=descricao, tipo=tipo, host=host, porta=porta, instancia=instancia,
-            banco=banco, usuario=usuario, encrypt=encrypt,
+            banco=banco, usuario=usuario, encrypt=encrypt, portal=portal,
         )
         c.validar()
         print()
@@ -362,6 +391,7 @@ def menu() -> None:
         "4": ("Testar base", lambda: testar(_perguntar("Nome", obrigatorio=True))),
         "5": ("Trocar senha de uma base", lambda: trocar_senha(_perguntar("Nome", obrigatorio=True))),
         "6": ("Remover base", lambda: remover(_perguntar("Nome", obrigatorio=True))),
+        "7": ("Portal Aster de uma base (opcional)", lambda: definir_portal(_perguntar("Nome", obrigatorio=True))),
     }
     while True:
         print("\n=== hana-diag — configurador ===")
@@ -386,6 +416,7 @@ def main() -> None:
     for cmd in ("testar", "remover"):
         sub.add_parser(cmd).add_argument("nome")
     sub.add_parser("senha", help="troca a senha de uma base sem recadastrar").add_argument("nome")
+    sub.add_parser("portal", help="inclui, troca ou tira a URL do portal Aster de uma base (opcional)").add_argument("nome")
     sub.add_parser("empresas", help="lista as empresas B1 do servidor de uma base e cadastra as escolhidas").add_argument(
         "nome", help="uma base já cadastrada nesse servidor"
     )
@@ -402,6 +433,8 @@ def main() -> None:
         cadastrar_empresas(a.nome)
     elif a.cmd == "senha":
         trocar_senha(a.nome)
+    elif a.cmd == "portal":
+        definir_portal(a.nome)
     elif a.cmd == "remover":
         remover(a.nome)
 
